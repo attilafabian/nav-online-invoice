@@ -12,7 +12,7 @@ class ManageInvoiceRequestXml extends BaseRequestXml {
     /**
      * @param Config $config
      * @param InvoiceOperations $invoiceOperations
-     * @param String $token
+     * @param string $token
      */
     function __construct($config, $invoiceOperations, $token) {
         $this->invoiceOperations = $invoiceOperations;
@@ -38,6 +38,9 @@ class ManageInvoiceRequestXml extends BaseRequestXml {
         $operationsXml = $this->xml->addChild("invoiceOperations");
 
         $operationsXml->addChild("technicalAnnulment", $this->invoiceOperations->getTechnicalAnnulment());
+
+        // NOTE: the compression is currently not supported
+        $operationsXml->addChild("compressedContent", false);
 
         // Számlák hozzáadása az XML-hez
         foreach ($this->invoiceOperations->getInvoices() as $invoice) {

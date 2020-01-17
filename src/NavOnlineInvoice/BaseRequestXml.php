@@ -1,14 +1,15 @@
 <?php
 
 namespace NavOnlineInvoice;
-use SimpleXMLElement;
-
 
 class BaseRequestXml {
 
     protected $rootName;
     protected $config;
 
+    /**
+     * @var \SimpleXMLElement
+     */
     protected $xml;
 
     protected $requestId;
@@ -18,7 +19,7 @@ class BaseRequestXml {
     /**
      * Request XML készítése
      *
-     * @param String $rootName  Root XML elem neve
+     * @param string $rootName  Root XML elem neve
      * @param Config $config    Konfigurációt tartalmazó objektum
      */
     function __construct($rootName, $config) {
@@ -53,7 +54,7 @@ class BaseRequestXml {
      *
      * Pattern: [+a-zA-Z0-9_]{1,30}
      *
-     * @return String
+     * @return string
      */
     protected function generateRequestId() {
         $id = "RID" . microtime() . mt_rand(10000, 99999);
@@ -64,17 +65,21 @@ class BaseRequestXml {
 
 
     /**
-     * A kérés kliens oldali időpontja UTC-ben
+     * A kérés kliens oldali időpontja UTC-ben, ezredmásodperccel
      *
-     * @return String
+     * @return string
      */
     protected function getTimestamp() {
-        return gmdate("Y-m-d\TH:i:s\Z");
+        $now = microtime(true);
+        $milliseconds = round(($now - floor($now)) * 1000);
+        $milliseconds = min($milliseconds, 999);
+
+        return gmdate("Y-m-d\TH:i:s", $now) . sprintf(".%03dZ", $milliseconds);
     }
 
 
     protected function createXmlObject() {
-        $this->xml = new SimpleXMLElement($this->getInitialXmlString());
+        $this->xml = new \SimpleXMLElement($this->getInitialXmlString());
     }
 
 
@@ -88,7 +93,7 @@ class BaseRequestXml {
 
         $header->addChild("requestId", $this->requestId);
         $header->addChild("timestamp", $this->timestamp);
-        $header->addChild("requestVersion", "1.0");
+        $header->addChild("requestVersion", "1.1");
         $header->addChild("headerVersion", "1.0");
     }
 
@@ -148,8 +153,8 @@ class BaseRequestXml {
         // requestId értéke
         $string .= $this->requestId;
 
-        // timestamp tag értéke yyyyMMddHHmmss maszkkal, UTC időben
-        $string .= preg_replace("/\D+/", "", $this->timestamp);
+        // timestamp tag értéke yyyyMMddHHmmss maszkkal, UTC időben (ezredmásodperc nélkül)
+        $string .= preg_replace("/\.\d{3}|\D+/", "", $this->timestamp);
 
         // technikai felhasználó aláíró kulcsának literál értéke
         $string .= $this->config->user["signKey"];
@@ -161,7 +166,7 @@ class BaseRequestXml {
     /**
      * XML objektum lekérése
      *
-     * @return SimpleXMLElement
+     * @return \SimpleXMLElement
      */
     public function getXML() {
         return $this->xml;
@@ -171,7 +176,7 @@ class BaseRequestXml {
     /**
      * XML adat lekérése string-ként
      *
-     * @return String
+     * @return string
      */
     public function asXML() {
         return $this->xml->asXML();
@@ -183,7 +188,7 @@ class BaseRequestXml {
      * Hiba esetén XsdValidationError exception-t dob.
      */
     public function validateSchema() {
-        Xsd::validate($this->asXML(), $this->config->apiSchemaFilename);
+        Xsd::validate($this->asXML(), Config::getApiXsdFilename());
     }
 
 }

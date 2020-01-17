@@ -7,12 +7,10 @@ try {
     $config = new NavOnlineInvoice\Config($apiUrl, $userDataFilename);
     $reporter = new NavOnlineInvoice\Reporter($config);
 
-    $invoices = new NavOnlineInvoice\InvoiceOperations();
+    $invoiceXml = simplexml_load_file(TEST_DATA_DIR . "invoice_annul.xml");
 
-    $invoices->add(simplexml_load_file(TEST_DATA_DIR . "invoice1.xml"));
-    $invoices->add(simplexml_load_file(TEST_DATA_DIR . "invoice2.xml"));
-
-    $transactionId = $reporter->manageInvoice($invoices);
+    // Technikai érvénytelenítés
+    $transactionId = $reporter->manageInvoice($invoiceXml, "ANNUL");
 
     print "Tranzakciós azonosító a státusz lekérdezéshez: " . $transactionId;
 

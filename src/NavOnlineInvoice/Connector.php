@@ -19,9 +19,13 @@ class Connector {
 
     /**
      *
-     * @param  String $url
-     * @param  String|SimpleXMLElement $requestXml
-     * @return SimpleXMLElement
+     * @param  string                   $url
+     * @param  string|\SimpleXMLElement $requestXml
+     * @return \SimpleXMLElement
+     * @throws \NavOnlineInvoice\CurlError
+     * @throws \NavOnlineInvoice\HttpResponseError
+     * @throws \NavOnlineInvoice\GeneralExceptionResponse
+     * @throws \NavOnlineInvoice\GeneralErrorResponse
      */
     public function post($url, $requestXml) {
 
@@ -29,7 +33,7 @@ class Connector {
         $xmlString = is_string($requestXml) ? $requestXml : $requestXml->asXML();
 
         if ($this->config->validateApiSchema) {
-            Xsd::validate($xmlString, $this->config->apiSchemaFilename);
+            Xsd::validate($xmlString, Config::getApiXsdFilename());
         }
 
         $ch = $this->getCurlHandle($url, $xmlString);
@@ -49,6 +53,10 @@ class Connector {
 
         if (!$responseXml) {
             throw new HttpResponseError($result, $httpStatusCode);
+        }
+
+        if ($responseXml->getName() === "GeneralExceptionResponse") {
+            throw new GeneralExceptionResponse($responseXml);
         }
 
         if ($responseXml->getName() === "GeneralErrorResponse") {
@@ -87,6 +95,12 @@ class Connector {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
+
+        if ($this->config->curlTimeout) {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 0);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $this->config->curlTimeout);
+        }
 
         return $ch;
     }
