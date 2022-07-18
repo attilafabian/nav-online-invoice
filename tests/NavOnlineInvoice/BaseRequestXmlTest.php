@@ -2,12 +2,17 @@
 
 use NavOnlineInvoice\BaseRequestXml;
 
+// Note
+class MyBaseRequestXml extends BaseRequestXml {
+    protected $rootName = "Test";
+}
+
 
 class BaseRequestXmlTest extends BaseTest {
 
 
     private function createTestRequestXml() {
-        return new BaseRequestXml("Test", $this->getConfig());
+        return new MyBaseRequestXml($this->getConfig());
     }
 
 
@@ -20,7 +25,7 @@ class BaseRequestXmlTest extends BaseTest {
 
         $xmlString = $requestXml->asXML();
 
-        $this->assertInternalType("string", $xmlString);
+        $this->assertTrue(is_string($xmlString));
         $this->assertSame(0, strpos($xmlString, '<?xml version="1.0" encoding="UTF-8"?>'));
     }
 

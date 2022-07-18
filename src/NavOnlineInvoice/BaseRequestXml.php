@@ -1,8 +1,10 @@
 <?php
 
 namespace NavOnlineInvoice;
+use Exception;
 
-class BaseRequestXml {
+
+abstract class BaseRequestXml {
 
     protected $rootName;
     protected $config;
@@ -15,15 +17,16 @@ class BaseRequestXml {
     protected $requestId;
     protected $timestamp;
 
+    const API_NS = "http://schemas.nav.gov.hu/OSA/3.0/api";
+    const COMMON_NS = "http://schemas.nav.gov.hu/NTCA/1.0/common";
+
 
     /**
      * Request XML készítése
      *
-     * @param string $rootName  Root XML elem neve
      * @param Config $config    Konfigurációt tartalmazó objektum
      */
-    function __construct($rootName, $config) {
-        $this->rootName = $rootName;
+    function __construct($config) {
         $this->config = $config;
 
         $this->createXml();
@@ -31,36 +34,13 @@ class BaseRequestXml {
 
 
     protected function createXml() {
-        $this->requestId = $this->generateRequestId();
+        $this->requestId = $this->config->getRequestIdGenerator()->generate();
         $this->timestamp = $this->getTimestamp();
 
         $this->createXmlObject();
         $this->addHeader();
         $this->addUser();
         $this->addSoftware();
-    }
-
-
-    /**
-     * Egyedi request ID generálása
-     *
-     * NAV specifikáció:
-     * A requestId a kérés azonosítója. Értéke bármi lehet, ami a pattern szerint érvényes és az
-     * egyediséget nem sérti. A requestId-nak - az adott adózó vonatkozásában - kérésenként
-     * egyedinek kell lennie. Az egyediségbe csak a sikeresen feldolgozott kérések számítanak bele, a
-     * sikertelen vagy a szerver által elutasított kérések azonosítói nem, azok az első sikeres
-     * tranzakcióig (HTTP 200-as válaszig) újra felhasználhatóak. A tag értéke beleszámít a
-     * requestSignature értékébe.
-     *
-     * Pattern: [+a-zA-Z0-9_]{1,30}
-     *
-     * @return string
-     */
-    protected function generateRequestId() {
-        $id = "RID" . microtime() . mt_rand(10000, 99999);
-        $id = preg_replace("/[^A-Z0-9]/", "", $id);
-        $id = substr($id, 0, 30);
-        return $id;
     }
 
 
@@ -74,7 +54,7 @@ class BaseRequestXml {
         $milliseconds = round(($now - floor($now)) * 1000);
         $milliseconds = min($milliseconds, 999);
 
-        return gmdate("Y-m-d\TH:i:s", $now) . sprintf(".%03dZ", $milliseconds);
+        return gmdate("Y-m-d\TH:i:s", (int) $now) . sprintf(".%03dZ", $milliseconds);
     }
 
 
@@ -84,30 +64,34 @@ class BaseRequestXml {
 
 
     protected function getInitialXmlString() {
-        return '<?xml version="1.0" encoding="UTF-8"?><' . $this->rootName . ' xmlns="http://schemas.nav.gov.hu/OSA/1.0/api"></' . $this->rootName . '>';
+
+        if (empty($this->rootName)) {
+            throw new Exception("rootName has to be defined!");
+        }
+        return '<?xml version="1.0" encoding="UTF-8"?><' . $this->rootName . ' xmlns:common="' . self::COMMON_NS . '" xmlns="' . self::API_NS . '"></' . $this->rootName . '>';
     }
 
 
     protected function addHeader() {
-        $header = $this->xml->addChild("header");
+        $header = $this->xml->addChild("header", null, self::COMMON_NS);
 
         $header->addChild("requestId", $this->requestId);
         $header->addChild("timestamp", $this->timestamp);
-        $header->addChild("requestVersion", "1.1");
+        $header->addChild("requestVersion", "3.0");
         $header->addChild("headerVersion", "1.0");
     }
 
 
     protected function addUser() {
-        $user = $this->xml->addChild("user");
+        $user = $this->xml->addChild("user", null, self::COMMON_NS);
 
-        $passwordHash = Util::sha512($this->config->user["password"]);
+        $passwordHash = isset($this->config->user["passwordHash"]) ? $this->config->user["passwordHash"] : Util::sha512($this->config->user["password"]);
         $signature = $this->getRequestSignatureHash();
 
         $user->addChild("login", $this->config->user["login"]);
-        $user->addChild("passwordHash", $passwordHash);
+        $user->addChild("passwordHash", $passwordHash)->addAttribute("cryptoType", "SHA-512");
         $user->addChild("taxNumber", $this->config->user["taxNumber"]);
-        $user->addChild("requestSignature", $signature);
+        $user->addChild("requestSignature", $signature)->addAttribute("cryptoType", "SHA3-512");
     }
 
 
@@ -134,7 +118,7 @@ class BaseRequestXml {
      */
     protected function getRequestSignatureHash() {
         $string = $this->getRequestSignatureString();
-        $hash = Util::sha512($string);
+        $hash = Util::sha3_512($string);
         return $hash;
     }
 
@@ -189,6 +173,11 @@ class BaseRequestXml {
      */
     public function validateSchema() {
         Xsd::validate($this->asXML(), Config::getApiXsdFilename());
+    }
+
+
+    public function getRequestId() {
+        return $this->requestId;
     }
 
 }

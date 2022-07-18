@@ -4,15 +4,13 @@ include("config.php");
 
 
 try {
-    $config = new NavOnlineInvoice\Config($apiUrl, $userDataFilename);
+    $config = new NavOnlineInvoice\Config($apiUrl, $userData, $softwareData);
     $reporter = new NavOnlineInvoice\Reporter($config);
 
-    $invoices = new NavOnlineInvoice\InvoiceOperations();
+    $invoiceXml = simplexml_load_file(TEST_DATA_DIR . "invoice1.xml");
 
-    $invoices->add(simplexml_load_file(TEST_DATA_DIR . "invoice1.xml"));
-    $invoices->add(simplexml_load_file(TEST_DATA_DIR . "invoice2.xml"));
-
-    $transactionId = $reporter->manageInvoice($invoices);
+    // Számla beküldése:
+    $transactionId = $reporter->manageInvoice($invoiceXml, "CREATE");
 
     print "Tranzakciós azonosító a státusz lekérdezéshez: " . $transactionId;
 
