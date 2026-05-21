@@ -99,8 +99,6 @@ class Connector {
         $this->lastResponseHeader = $header;
         $this->lastResponseBody = $result;
 
-        curl_close($ch);
-
         if ($errno) {
             throw new CurlError($errno);
         }
